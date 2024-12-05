@@ -11,10 +11,31 @@
 #define RFM95_RST 4
 
 // Change to 434.0 or other frequency, must match RX's freq!
-#define RF95_FREQ 915.0
+#define RF95_FREQ 915.1
 
 // Singleton instance of the radio driver
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
+
+// data format, what's in the values depends on what type of sensor
+// is sending it along
+typedef struct
+{
+  uint8_t sensorType;
+  ulong uptimeMillis;
+  ulong txCounter;
+  uint16_t battMillivolts;
+  uint16_t lastRssi;
+  uint16_t valOne;
+  uint16_t valTwo;
+  uint16_t valThree;
+  uint16_t valFour;
+  uint16_t valFive;
+  uint16_t valSix;
+  uint16_t valSeven;
+  uint16_t valEight;
+  uint16_t valNine;
+  uint16_t valTen;
+} RanchSensorStruct;
 
 void setup()
 {
@@ -67,29 +88,26 @@ void loop()
 {
   if (rf95.available())
   {
-    // Should be a message for us now
-    uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
-    uint8_t len = sizeof(buf);
+    RanchSensorStruct packet;
+    uint8_t datalen = sizeof(packet);
 
-    if (rf95.recv(buf, &len))
+    if (rf95.recv((uint8_t *)&packet, &datalen))
     {
-      digitalWrite(LED_BUILTIN, HIGH);
-      // RH_RF95::printBuffer("Received: ", buf, len);
-      Serial.print("Got: ");
-      Serial.print((char *)buf);
-      Serial.print(" // RSSI: ");
-      Serial.println(rf95.lastRssi(), DEC);
-
-      // Send a reply
-      /* uint8_t data[] = "And hello back to you";
-      rf95.send(data, sizeof(data));
-      rf95.waitPacketSent();
-      Serial.println("Sent a reply");
-      digitalWrite(LED_BUILTIN, LOW);*/
+      // Debugging output
+      Serial.printf("Received: type=%d, uptime=%d, batt=%d, tx=%d\n",
+                    packet.sensorType, packet.uptimeMillis, packet.battMillivolts, packet.txCounter);
+      if (packet.sensorType == 10)
+      {
+        Serial.printf("-> Water Level: distance=%d\n", packet.valOne);
+      }
+      else
+      {
+        Serial.printf("-> Unknown type: %d", packet.sensorType);
+      }
     }
     else
     {
-      Serial.println("Receive failed");
+      Serial.println("Receive failed!");
     }
   }
 }
