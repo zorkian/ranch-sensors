@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <SPI.h>
 #include <RH_RF95.h>
 
@@ -102,6 +103,7 @@ void loop()
     if (rf95.recv((uint8_t *)&packet, &datalen))
     {
       // Debugging output
+      /*
       Serial.printf("Received (RSSI %d): type=%d/%d, f=%d, up=%d, batt=%d, tx(%d)=%d\n",
                     rf95.lastRssi(), packet.sensorType, packet.sensorId, packet.flags,
                     packet.uptimeMillis, packet.battMillivolts, packet.txPower, packet.txCounter);
@@ -113,6 +115,26 @@ void loop()
       {
         Serial.printf("-> Unknown type: %d", packet.sensorType);
       }
+      */
+
+      StaticJsonDocument<100> json;
+
+      json["t"] = packet.sensorType;
+      json["id"] = packet.sensorId;
+      json["rssi"] = rf95.lastRssi();
+      json["f"] = packet.flags;
+      json["b"] = packet.battMillivolts;
+      json["up"] = packet.uptimeMillis;
+      json["txc"] = packet.txCounter;
+      json["txp"] = packet.txPower;
+
+      if (packet.sensorType == 10)
+      {
+        json["wl"] = packet.valOne;
+      }
+
+      serializeJson(json, Serial);
+      Serial.println();
     }
     else
     {
