@@ -65,15 +65,6 @@ int16_t packetnum = 0; // packet counter, we increment per xmission
 
 void loop()
 {
-  delay(1000);
-
-  float measuredvbat = analogRead(VBATPIN);
-  measuredvbat *= 2;    // we divided by 2, so multiply back
-  measuredvbat *= 3.3;  // Multiply by 3.3V, our reference voltage
-  measuredvbat /= 1024; // convert to voltage
-  Serial.print("VBat: ");
-  Serial.println(measuredvbat);
-
   if (rf95.available())
   {
     // Should be a message for us now
@@ -83,18 +74,18 @@ void loop()
     if (rf95.recv(buf, &len))
     {
       digitalWrite(LED_BUILTIN, HIGH);
-      RH_RF95::printBuffer("Received: ", buf, len);
+      // RH_RF95::printBuffer("Received: ", buf, len);
       Serial.print("Got: ");
-      Serial.println((char *)buf);
-      Serial.print("RSSI: ");
+      Serial.print((char *)buf);
+      Serial.print(" // RSSI: ");
       Serial.println(rf95.lastRssi(), DEC);
 
       // Send a reply
-      uint8_t data[] = "And hello back to you";
+      /* uint8_t data[] = "And hello back to you";
       rf95.send(data, sizeof(data));
       rf95.waitPacketSent();
       Serial.println("Sent a reply");
-      digitalWrite(LED_BUILTIN, LOW);
+      digitalWrite(LED_BUILTIN, LOW);*/
     }
     else
     {
