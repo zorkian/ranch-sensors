@@ -21,6 +21,7 @@ RH_RF95 rf95(RFM95_CS, RFM95_INT);
 typedef struct
 {
   uint8_t sensorType;
+  uint16_t sensorId;
   ulong uptimeMillis;
   ulong txCounter;
   uint16_t battMillivolts;
@@ -94,11 +95,11 @@ void loop()
     if (rf95.recv((uint8_t *)&packet, &datalen))
     {
       // Debugging output
-      Serial.printf("Received: type=%d, uptime=%d, batt=%d, tx=%d\n",
-                    packet.sensorType, packet.uptimeMillis, packet.battMillivolts, packet.txCounter);
+      Serial.printf("Received (RSSI %d): type=%d, id=%d, uptime=%d, batt=%d, tx=%d\n",
+                    rf95.lastRssi(), packet.sensorType, packet.sensorId, packet.uptimeMillis, packet.battMillivolts, packet.txCounter);
       if (packet.sensorType == 10)
       {
-        Serial.printf("-> Water Level: distance=%d\n", packet.valOne);
+        Serial.printf("-> Water Level: distance=%d cms\n", packet.valOne);
       }
       else
       {

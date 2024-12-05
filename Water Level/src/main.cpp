@@ -3,6 +3,9 @@
 #include <RH_RF95.h>
 #include <avr/dtostrf.h>
 
+// CHANGE THIS EVERY TIME YOU COMPILE FOR A SENSOR; IS THERE A NICER WAY?
+#define SENSOR_ID 201
+
 // How quickly to send reports; this might be fine
 #define SEND_INTERVAL_MILLIS 5000
 #define SEND_INTERVAL_LOWPOWER_MILLIS 300000
@@ -31,6 +34,7 @@ RH_RF95 rf95(RFM95_CS, RFM95_INT);
 typedef struct
 {
   uint8_t sensorType;
+  uint16_t sensorId;
   ulong uptimeMillis;
   ulong txCounter;
   uint16_t battMillivolts;
@@ -89,6 +93,8 @@ void setup()
   // The default transmitter power is 13dBm, using PA_BOOST.
   // If you are using RFM95/96/97/98 modules which uses the PA_BOOST transmitter pin, then
   // you can set transmitter powers from 5 to 23 dBm:
+  // TODO: have the receiver send back a power report so we can adjust how much power
+  // we use to transmit
   rf95.setTxPower(23, false);
 
   // for the ultrasonic sensor
@@ -138,6 +144,7 @@ void loop()
   // get structure
   RanchSensorStruct packet;
   packet.sensorType = 10;
+  packet.sensorId = SENSOR_ID;
   packet.uptimeMillis = startMillis;
   packet.battMillivolts = getBattMillivolts();
   // packet.lastRssi = ...
@@ -145,8 +152,8 @@ void loop()
   packet.valOne = getDistanceCentimeters();
 
   // Debugging output
-  Serial.printf("Sending: type=%d, uptime=%d, batt=%d, tx=%d, distance=%d\n",
-                packet.sensorType, packet.uptimeMillis, packet.battMillivolts, packet.txCounter, packet.valOne);
+  Serial.printf("Sending: type=%d, id=%d, uptime=%d, batt=%d, tx=%d, distance=%d\n",
+                packet.sensorType, packet.sensorId, packet.uptimeMillis, packet.battMillivolts, packet.txCounter, packet.valOne);
 
   // Write the packet and chill until it's sent
   delay(10);
