@@ -21,6 +21,7 @@
 
 // Change to 434.0 or other frequency, must match RX's freq!
 #define RF95_FREQ 915.1
+#define RF95_POWER 23
 
 // Singleton instance of the radio driver
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
@@ -29,14 +30,24 @@ RH_RF95 rf95(RFM95_CS, RFM95_INT);
 #define ULTRA_TRIG_PIN 5
 #define ULTRA_ECHO_PIN 6
 
+// Pins for checking on the charging system
+#define CHARGER_PGOOD_PIN 10
+#define CHARGER_CHARGE_PIN 11
+
+// Ranch struct flags (0..31 flag positions max)
+#define FLAG_CHARGER_PGOOD 1
+#define FLAG_CHARGER_CHARGE 2
+
 // data format, what's in the values depends on what type of sensor
 // is sending it along
 typedef struct
 {
   uint8_t sensorType;
   uint16_t sensorId;
+  ulong flags;
   ulong uptimeMillis;
   ulong txCounter;
+  uint8_t txPower;
   uint16_t battMillivolts;
   uint16_t lastRssi;
   uint16_t valOne;
@@ -95,16 +106,19 @@ void setup()
   // you can set transmitter powers from 5 to 23 dBm:
   // TODO: have the receiver send back a power report so we can adjust how much power
   // we use to transmit
-  rf95.setTxPower(23, false);
+  rf95.setTxPower(RF95_POWER, false);
 
   // for the ultrasonic sensor
   pinMode(ULTRA_TRIG_PIN, OUTPUT); // Sets the ULTRA_TRIG_PIN as an Output
   pinMode(ULTRA_ECHO_PIN, INPUT);  // Sets the ULTRA_ECHO_PIN as an Input
 
-  // turn off the LED; well, we could, but it probably doesn't save that much power and
-  // we have a 1200 mAh battery in the thing and it's nice to know when it's on
-  // pinMode(LED_BUILTIN, OUTPUT);
-  // digitalWrite(LED_BUILTIN, LOW);
+  // turn off the LED; we flash it during xmit
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
+
+  // configure input pins for charger
+  pinMode(CHARGER_CHARGE_PIN, INPUT_PULLUP);
+  pinMode(CHARGER_PGOOD_PIN, INPUT_PULLUP);
 }
 
 uint16_t getDistanceCentimeters()
@@ -140,20 +154,28 @@ void loop()
 {
   // record what time it is so we can delay later
   ulong startMillis = millis();
+  digitalWrite(LED_BUILTIN, HIGH);
 
   // get structure
   RanchSensorStruct packet;
   packet.sensorType = 10;
   packet.sensorId = SENSOR_ID;
+  packet.flags = 0;
   packet.uptimeMillis = startMillis;
   packet.battMillivolts = getBattMillivolts();
   // packet.lastRssi = ...
   packet.txCounter = packetnum++;
+  packet.txPower = RF95_POWER;
   packet.valOne = getDistanceCentimeters();
 
+  // Set flags based on charging system, this assumes the flags were 0 when we started
+  packet.flags ^= (digitalRead(CHARGER_PGOOD_PIN) == LOW ? 1 : 0) << FLAG_CHARGER_PGOOD;
+  packet.flags ^= (digitalRead(CHARGER_CHARGE_PIN) == LOW ? 1 : 0) << FLAG_CHARGER_CHARGE;
+
   // Debugging output
-  Serial.printf("Sending: type=%d, id=%d, uptime=%d, batt=%d, tx=%d, distance=%d\n",
-                packet.sensorType, packet.sensorId, packet.uptimeMillis, packet.battMillivolts, packet.txCounter, packet.valOne);
+  Serial.printf("Sending: t=%d/id=%d/f=%d/up=%d/batt=%d/tx(%d)=%d/dist=%d\n",
+                packet.sensorType, packet.sensorId, packet.flags, packet.uptimeMillis, packet.battMillivolts,
+                packet.txPower, packet.txCounter, packet.valOne);
 
   // Write the packet and chill until it's sent
   delay(10);
@@ -161,6 +183,9 @@ void loop()
 
   delay(10);
   rf95.waitPacketSent();
+
+  // LED off while we wait
+  digitalWrite(LED_BUILTIN, LOW);
 
   // now relax a while, just so we don't blast the power transmitting way more than
   // we need to care about (it's not like the water level is going to move that

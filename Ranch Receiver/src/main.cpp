@@ -12,9 +12,14 @@
 
 // Change to 434.0 or other frequency, must match RX's freq!
 #define RF95_FREQ 915.1
+#define RF95_POWER 23
 
 // Singleton instance of the radio driver
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
+
+// Ranch struct flags (0..31 flag positions max)
+#define FLAG_CHARGER_PGOOD 1
+#define FLAG_CHARGER_CHARGE 2
 
 // data format, what's in the values depends on what type of sensor
 // is sending it along
@@ -22,8 +27,10 @@ typedef struct
 {
   uint8_t sensorType;
   uint16_t sensorId;
+  ulong flags;
   ulong uptimeMillis;
   ulong txCounter;
+  uint8_t txPower;
   uint16_t battMillivolts;
   uint16_t lastRssi;
   uint16_t valOne;
@@ -80,7 +87,7 @@ void setup()
   // The default transmitter power is 13dBm, using PA_BOOST.
   // If you are using RFM95/96/97/98 modules which uses the PA_BOOST transmitter pin, then
   // you can set transmitter powers from 5 to 23 dBm:
-  rf95.setTxPower(23, false);
+  rf95.setTxPower(RF95_POWER, false);
 }
 
 int16_t packetnum = 0; // packet counter, we increment per xmission
@@ -95,8 +102,9 @@ void loop()
     if (rf95.recv((uint8_t *)&packet, &datalen))
     {
       // Debugging output
-      Serial.printf("Received (RSSI %d): type=%d, id=%d, uptime=%d, batt=%d, tx=%d\n",
-                    rf95.lastRssi(), packet.sensorType, packet.sensorId, packet.uptimeMillis, packet.battMillivolts, packet.txCounter);
+      Serial.printf("Received (RSSI %d): type=%d/%d, f=%d, up=%d, batt=%d, tx(%d)=%d\n",
+                    rf95.lastRssi(), packet.sensorType, packet.sensorId, packet.flags,
+                    packet.uptimeMillis, packet.battMillivolts, packet.txPower, packet.txCounter);
       if (packet.sensorType == 10)
       {
         Serial.printf("-> Water Level: distance=%d cms\n", packet.valOne);
